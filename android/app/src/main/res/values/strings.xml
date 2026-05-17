@@ -1,4 +1,0 @@
-<resources>
-    <string name="app_name">control</string>
-    <string name="accessibility_service_description">Detects protected app launches and triggers mindfulness intervention.</string>
-</resources>
