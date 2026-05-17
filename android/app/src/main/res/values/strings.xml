@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Detects selected app launches to show mindful intervention before opening.</string>
+</resources>
