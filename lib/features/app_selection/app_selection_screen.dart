@@ -95,8 +95,8 @@ class _AppSelectionScreenState extends ConsumerState<AppSelectionScreen> {
 
   Future<void> _showRuleEditor(BuildContext context, ProtectedApp app) async {
     final categories = ['General', 'Social', 'Video', 'News', 'Messaging'];
-    var localDelay = app.delaySeconds as int;
-    var localCategory = app.category as String;
+    var localDelay = app.delaySeconds;
+    var localCategory = app.category;
 
     await showModalBottomSheet<void>(
       context: context,
