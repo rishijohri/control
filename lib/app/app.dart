@@ -6,6 +6,7 @@ import 'package:control/features/analytics/analytics_dashboard_screen.dart';
 import 'package:control/features/app_selection/app_selection_screen.dart';
 import 'package:control/features/intervention/intervention_screen.dart';
 import 'package:control/features/settings/settings_screen.dart';
+import 'package:control/services/native_bridge_service.dart';
 import 'package:control/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,6 +111,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       final result = await Navigator.of(context).push<InterventionResult>(
         PageRouteBuilder(
           opaque: true,
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
           pageBuilder: (_, __, ___) => InterventionScreen(
             appLabel: next.label,
             delaySeconds: next.delaySeconds,
@@ -117,9 +120,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             minutesToday: next.minutesToday,
             breathTarget: breathCount,
           ),
-          transitionsBuilder: (_, animation, __, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
+          transitionsBuilder: (_, __, ___, child) => child,
         ),
       );
 
@@ -135,6 +136,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                 : InterventionOutcome.dropped,
             continueToTarget: result.continueToTarget,
           );
+
+      if (!result.continueToTarget) {
+        await NativeBridgeService.goToDeviceHome();
+      }
 
       ref.read(analyticsControllerProvider.notifier).refresh();
     });

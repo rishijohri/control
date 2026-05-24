@@ -78,6 +78,53 @@ class SettingsScreen extends ConsumerWidget {
                           .setBreathCount(value.round());
                     },
                   ),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: interventionPrefs.shortFormDetectionEnabled,
+                    title: const Text('Short-form content detection'),
+                    subtitle: const Text(
+                      'Detect repeated up/down swipes in protected apps and trigger an interruption.',
+                    ),
+                    onChanged: (enabled) {
+                      ref
+                          .read(interventionPreferencesProvider.notifier)
+                          .setShortFormDetectionEnabled(enabled);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Trigger after',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                      ),
+                      Text(
+                        '${interventionPrefs.shortFormInterruptionAfterSeconds}s',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: interventionPrefs.shortFormInterruptionAfterSeconds
+                        .toDouble(),
+                    min: 10,
+                    max: 120,
+                    divisions: 22,
+                    label:
+                        '${interventionPrefs.shortFormInterruptionAfterSeconds} seconds',
+                    onChanged: interventionPrefs.shortFormDetectionEnabled
+                        ? (value) {
+                            ref
+                                .read(interventionPreferencesProvider.notifier)
+                                .setShortFormInterruptionAfterSeconds(
+                                  value.round(),
+                                );
+                          }
+                        : null,
+                  ),
                 ],
               ),
             ),

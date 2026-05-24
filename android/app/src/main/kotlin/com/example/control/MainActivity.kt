@@ -12,6 +12,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Base64
@@ -36,6 +37,12 @@ class MainActivity : FlutterActivity(), MethodChannel.MethodCallHandler, EventCh
 	private lateinit var eventChannel: EventChannel
 	private var eventSink: EventChannel.EventSink? = null
 	private var eventReceiver: BroadcastReceiver? = null
+	private var pendingInterventionEvent: Map<String, Any>? = null
+
+	override fun onCreate(savedInstanceState: Bundle?) {
+		super.onCreate(savedInstanceState)
+		handleInterventionIntent(intent)
+	}
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)
@@ -48,15 +55,8 @@ class MainActivity : FlutterActivity(), MethodChannel.MethodCallHandler, EventCh
 
 	override fun onNewIntent(intent: Intent) {
 		super.onNewIntent(intent)
-		if (intent.action == ACTION_SHOW_INTERVENTION) {
-			val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
-			eventSink?.success(
-				mapOf(
-					EXTRA_PACKAGE_NAME to packageName,
-					EXTRA_TIMESTAMP to System.currentTimeMillis()
-				)
-			)
-		}
+		setIntent(intent)
+		handleInterventionIntent(intent)
 	}
 
 	override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -122,34 +122,58 @@ class MainActivity : FlutterActivity(), MethodChannel.MethodCallHandler, EventCh
 				result.success(null)
 			}
 
+			"syncInterventionSettings" -> {
+				val args = call.arguments as? Map<*, *>
+				val enabled = args?.get("shortFormDetectionEnabled") as? Boolean ?: false
+				val afterSeconds = (args?.get("shortFormInterruptionAfterSeconds") as? Number)
+					?.toInt() ?: 30
+
+				InterceptionConfigStore.setShortFormSettings(
+					this,
+					enabled,
+					afterSeconds
+				)
+				result.success(null)
+			}
+
+			"goToDeviceHome" -> {
+				goToDeviceHome()
+				result.success(null)
+			}
+
 			else -> result.notImplemented()
 		}
 	}
 
 	override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
 		eventSink = events
-		if (eventReceiver != null) return
-
-		eventReceiver = object : BroadcastReceiver() {
-			override fun onReceive(context: Context?, intent: Intent?) {
-				if (intent?.action != ACTION_PROTECTED_APP_LAUNCHED) return
-				val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
-				val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, System.currentTimeMillis())
-				eventSink?.success(
-					mapOf(
-						EXTRA_PACKAGE_NAME to packageName,
-						EXTRA_TIMESTAMP to timestamp
+		if (eventReceiver == null) {
+			eventReceiver = object : BroadcastReceiver() {
+				override fun onReceive(context: Context?, intent: Intent?) {
+					if (intent?.action != ACTION_PROTECTED_APP_LAUNCHED) return
+					val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
+					val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, System.currentTimeMillis())
+					eventSink?.success(
+						mapOf(
+							EXTRA_PACKAGE_NAME to packageName,
+							EXTRA_TIMESTAMP to timestamp
+						)
 					)
-				)
+				}
+			}
+
+			val filter = IntentFilter(ACTION_PROTECTED_APP_LAUNCHED)
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+				registerReceiver(eventReceiver, filter, RECEIVER_NOT_EXPORTED)
+			} else {
+				@Suppress("DEPRECATION")
+				registerReceiver(eventReceiver, filter)
 			}
 		}
 
-		val filter = IntentFilter(ACTION_PROTECTED_APP_LAUNCHED)
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-			registerReceiver(eventReceiver, filter, RECEIVER_NOT_EXPORTED)
-		} else {
-			@Suppress("DEPRECATION")
-			registerReceiver(eventReceiver, filter)
+		pendingInterventionEvent?.let { pending ->
+			eventSink?.success(pending)
+			pendingInterventionEvent = null
 		}
 	}
 
@@ -200,6 +224,30 @@ class MainActivity : FlutterActivity(), MethodChannel.MethodCallHandler, EventCh
 		InterceptionConfigStore.recordAllowedOpen(this, packageName, System.currentTimeMillis())
 		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 		startActivity(intent)
+	}
+
+	private fun handleInterventionIntent(intent: Intent?) {
+		if (intent?.action != ACTION_SHOW_INTERVENTION) return
+		val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
+		val payload = mapOf(
+			EXTRA_PACKAGE_NAME to packageName,
+			EXTRA_TIMESTAMP to System.currentTimeMillis()
+		)
+
+		if (eventSink != null) {
+			eventSink?.success(payload)
+		} else {
+			pendingInterventionEvent = payload
+		}
+	}
+
+	private fun goToDeviceHome() {
+		val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+			addCategory(Intent.CATEGORY_HOME)
+			addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+		}
+		startActivity(homeIntent)
+		moveTaskToBack(true)
 	}
 
 	private fun isUsageAccessGranted(): Boolean {

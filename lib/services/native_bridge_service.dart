@@ -64,6 +64,10 @@ class NativeBridgeService {
     await _methodChannel.invokeMethod<void>('launchApp', {'packageName': packageName});
   }
 
+  static Future<void> goToDeviceHome() async {
+    await _methodChannel.invokeMethod<void>('goToDeviceHome');
+  }
+
   static Future<void> recordBypass(String packageName) async {
     await _methodChannel.invokeMethod<void>('recordBypass', {
       'packageName': packageName,
@@ -75,5 +79,15 @@ class NativeBridgeService {
     Map<String, Map<String, dynamic>> config,
   ) async {
     await _methodChannel.invokeMethod<void>('syncProtectionConfig', {'config': config});
+  }
+
+  static Future<void> syncInterventionSettings({
+    required bool shortFormDetectionEnabled,
+    required int shortFormInterruptionAfterSeconds,
+  }) async {
+    await _methodChannel.invokeMethod<void>('syncInterventionSettings', {
+      'shortFormDetectionEnabled': shortFormDetectionEnabled,
+      'shortFormInterruptionAfterSeconds': shortFormInterruptionAfterSeconds,
+    });
   }
 }
